@@ -50,6 +50,14 @@
     return Number.isFinite(offset) && Number.isFinite(baseline) && Math.abs(offset - baseline) <= tolerance;
   }
 
+  function isClosedRelativeTo(ear, openBaseline, ratio = 0.72) {
+    return Number.isFinite(ear) && Number.isFinite(openBaseline) && openBaseline > 0 && ear <= openBaseline * ratio;
+  }
+
+  function isReopenedRelativeTo(ear, openBaseline, ratio = 0.86) {
+    return Number.isFinite(ear) && Number.isFinite(openBaseline) && openBaseline > 0 && ear >= openBaseline * ratio;
+  }
+
   function createChallengeSequence(random = Math.random) {
     const first = random() < 0.5 ? 'blink' : 'turn';
     return first === 'blink' ? [{ type: 'blink' }, { type: 'turn' }] : [{ type: 'turn' }, { type: 'blink' }];
@@ -62,5 +70,5 @@
     return Boolean(box && Number(d.detection.score) >= 0.70 && Number(videoWidth) > 0 && box.width / videoWidth >= 0.18);
   }
 
-  return { eyeAspectRatio, averageEyeAspectRatio, noseOffset, isTurnDetected, isCentered, median, hasTurnedFrom, hasReturnedTo, createChallengeSequence, isOneGoodFace };
+  return { eyeAspectRatio, averageEyeAspectRatio, noseOffset, isTurnDetected, isCentered, median, hasTurnedFrom, hasReturnedTo, isClosedRelativeTo, isReopenedRelativeTo, createChallengeSequence, isOneGoodFace };
 });
