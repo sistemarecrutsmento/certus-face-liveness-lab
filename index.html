@@ -70,7 +70,7 @@
       sequence.forEach((item, index) => {
         const pill = document.createElement('span');
         pill.className = `step${index < current || complete ? ' done' : index === current ? ' active' : ''}`;
-        pill.textContent = item.type === 'blink' ? 'Piscar' : `Virar para ${item.side} da tela`;
+        pill.textContent = item.type === 'blink' ? 'Piscar' : 'Virar e voltar ao centro';
         stepsEl.append(pill);
       });
     }
@@ -155,6 +155,8 @@
       let turnFrames = 0;
       let centerFrames = 0;
       let turnCaptured = false;
+      let neutralSamples = [];
+      let turnBaseline = null;
       let active = false;
       while (running && runToken === token && stage < sequence.length && Date.now() - startedAt < 45000) {
         if (!video.videoWidth || !video.videoHeight) { await sleep(150); continue; }
@@ -167,12 +169,12 @@
         if (!core.isOneGoodFace(detections, video.videoWidth)) {
           sayCamera(detections.length > 1 ? 'Deixe apenas um rosto visível' : 'Centralize o rosto dentro do contorno');
           say('É preciso detectar somente um rosto, bem enquadrado e iluminado.');
-          openFrames = 0; blinkArmed = false; eyeWasClosed = false; turnFrames = 0; centerFrames = 0; turnCaptured = false; active = false;
+          openFrames = 0; blinkArmed = false; eyeWasClosed = false; turnFrames = 0; centerFrames = 0; turnCaptured = false; neutralSamples = []; turnBaseline = null; active = false;
           await sleep(170); continue;
         }
         sayCamera('Rosto detectado — análise local');
         const item = sequence[stage];
-        if (!active) { active = true; challengeAt = Date.now(); openFrames = 0; blinkArmed = false; eyeWasClosed = false; turnFrames = 0; centerFrames = 0; turnCaptured = false; renderSteps(sequence, stage); }
+        if (!active) { active = true; challengeAt = Date.now(); openFrames = 0; blinkArmed = false; eyeWasClosed = false; turnFrames = 0; centerFrames = 0; turnCaptured = false; neutralSamples = []; turnBaseline = null; renderSteps(sequence, stage); }
         if (item.type === 'blink') {
           const ear = core.averageEyeAspectRatio(detections[0].landmarks.positions);
           if (Number.isFinite(ear) && ear > 0.22) {
@@ -189,20 +191,32 @@
           say(`Etapa ${stage + 1} de 2: pisque naturalmente.`);
         } else {
           const offset = core.noseOffset(detections[0].landmarks.positions);
+          if (!Number.isFinite(offset)) { await sleep(130); continue; }
+          if (turnBaseline === null) {
+            neutralSamples.push(offset);
+            sayCamera('Calibrando posição neutra…');
+            say(`Etapa ${stage + 1} de 2: olhe reto para a câmera e mantenha a cabeça parada.`);
+            if (neutralSamples.length >= 7) {
+              turnBaseline = core.median(neutralSamples);
+              challengeAt = Date.now();
+              sayCamera('Pronto — vire para qualquer lado');
+            }
+            await sleep(150); continue;
+          }
           if (!turnCaptured) {
-            turnFrames = core.isTurnDetected(offset, item.side) ? turnFrames + 1 : 0;
+            turnFrames = core.hasTurnedFrom(offset, turnBaseline) ? turnFrames + 1 : 0;
             if (turnFrames >= 3 && Date.now() - challengeAt >= 650) {
               turnCaptured = true; centerFrames = 0; turnFrames = 0;
-              say('Virada detectada. Agora volte ao centro.');
+              say('Movimento detectado. Agora volte a olhar reto para a câmera.');
             }
           } else {
-            centerFrames = core.isCentered(offset) ? centerFrames + 1 : 0;
+            centerFrames = core.hasReturnedTo(offset, turnBaseline) ? centerFrames + 1 : 0;
             if (centerFrames >= 3) {
-              say('Virada e retorno ao centro detectados.');
+              say('Virada e retorno à sua posição inicial detectados.');
               stage++; active = false; await sleep(500); continue;
             }
           }
-          say(turnCaptured ? `Etapa ${stage + 1} de 2: volte o rosto ao centro.` : `Etapa ${stage + 1} de 2: vire o rosto para a ${item.side} da tela e volte ao centro.`);
+          say(turnCaptured ? `Etapa ${stage + 1} de 2: volte a olhar reto para a câmera.` : `Etapa ${stage + 1} de 2: vire um pouco o rosto para qualquer lado e volte a olhar reto.`);
         }
         await sleep(130);
       }
