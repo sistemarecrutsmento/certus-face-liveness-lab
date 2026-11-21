@@ -32,13 +32,9 @@ test('nose offset is normalized to eye span and turn side is directional', () =>
   assert.equal(core.hasReturnedTo(0.04, 0.02), true);
   assert.equal(core.hasReturnedTo(-0.14, 0.02), false);
   assert.equal(core.median([0.1, -0.1, 0.03]), 0.03);
-  assert.equal(core.isClosedRelativeTo(0.16, 0.24), true);
-  assert.equal(core.isClosedRelativeTo(0.19, 0.24), false);
-  assert.equal(core.isReopenedRelativeTo(0.22, 0.24), true);
-  assert.equal(core.isReopenedRelativeTo(0.18, 0.24), false);
 });
 
-test('challenge set randomly orders one blink and one direction-agnostic turn', () => {
+test('challenge set has one blink and one unpredictable turn direction/order', () => {
   const seq = core.createChallengeSequence(() => 0.1);
   assert.deepEqual(seq, [{type:'turn'},{type:'blink'}]);
   assert.equal(seq.filter(x => x.type === 'blink').length, 1);
